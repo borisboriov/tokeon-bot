@@ -6,29 +6,14 @@ Detects one of three layouts per file and applies the right strategy:
   - procedure: title + steps, possibly with multiple sub-sections (wallet.txt etc.)
 """
 import re
-from dataclasses import dataclass
 from pathlib import Path
 
-
-@dataclass(frozen=True)
-class Chunk:
-    text: str
-    metadata: dict
-
+from app.chunkers.base import Chunk, _truncate
 
 _Q_RE = re.compile(r"^Вопрос:\s*", re.MULTILINE)
 _A_RE = re.compile(r"^Ответ:\s*", re.MULTILINE)
 _BLANK_RE = re.compile(r"\n\s*\n")
 _GLOSSARY_LINE_RE = re.compile(r"^(?P<term>.+?)\s+[—–\-]\s+(?P<defn>.+)$")
-
-_MAX_TITLE_LEN = 80
-
-
-def _truncate(s: str, max_len: int = _MAX_TITLE_LEN) -> str:
-    s = s.strip()
-    if len(s) <= max_len:
-        return s
-    return s[:max_len - 3].rstrip() + "..."
 
 
 class FAQChunker:
