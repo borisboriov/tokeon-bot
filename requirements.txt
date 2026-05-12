@@ -7,6 +7,7 @@ chromadb>=0.5,<0.7
 # Providers
 gigachat>=0.1.40
 yandex-cloud-ml-sdk>=0.4
+sentence-transformers>=2.7,<4
 
 # UI
 gradio>=4.44,<6
