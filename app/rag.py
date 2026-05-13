@@ -1,21 +1,21 @@
 from pathlib import Path
 
 from app.config import settings
+from app.filters import filter_input, filter_output
+from app.prompts import dominant_category, get_prompt
 from app.providers import make_embeddings, make_llm
 from app.store import VectorStore
 
-_SYSTEM_PROMPT = """Ты — помощник службы поддержки платформы Токеон (цифровые финансовые активы, ЦФА).
-Отвечай строго на основе предоставленного контекста из базы знаний.
-Если ответ не найден в контексте — скажи: «В базе знаний платформы Токеон нет информации по этому вопросу». Не придумывай и не используй общие знания.
-Отвечай на том же языке, на котором задан вопрос.
-Будь точным и лаконичным.
-
-Финансовый жаргон пользователей: «бумаги», «активы», «инструменты» — имеется в виду ЦФА. «Зарегать», «создать аккаунт» — регистрация на платформе. «Вывести бабки/деньги» — вывод денежных средств с кошелька."""
-
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+_FALLBACK = (
+    "К сожалению, я не нашёл подходящей информации в базе знаний платформы Токеон. "
+    "Пожалуйста, обратитесь в службу поддержки."
+)
+
+_MAX_HISTORY = 5  # pairs to include in prompt
+
 # Jargon → canonical terms expansion for retrieval.
-# Applied before embedding so the vector search finds the right chunks.
 _JARGON_MAP = {
     "бумаги": "ЦФА цифровые финансовые активы",
     "бумага": "ЦФА цифровой финансовый актив",
@@ -35,10 +35,7 @@ _JARGON_MAP = {
 
 def _expand_query(query: str) -> str:
     lower = query.lower()
-    extras: list[str] = []
-    for jargon, expansion in _JARGON_MAP.items():
-        if jargon in lower:
-            extras.append(expansion)
+    extras = [exp for jargon, exp in _JARGON_MAP.items() if jargon in lower]
     return f"{query} {' '.join(extras)}".strip() if extras else query
 
 
@@ -57,11 +54,22 @@ class RAGPipeline:
             score_threshold=settings.retrieval_score_threshold,
         )
 
-    def answer(self, query: str) -> tuple[str, list[dict]]:
-        hits = self.retrieve(query)
-        if not hits:
-            return "Извините, в базе знаний не найдено информации по вашему вопросу.", []
+    def answer(
+        self,
+        query: str,
+        history: list[tuple[str, str]] | None = None,
+    ) -> tuple[str, list[dict]]:
+        # --- input filter ---
+        cleaned_query, refusal = filter_input(query)
+        if refusal:
+            return refusal, []
 
+        # --- retrieval ---
+        hits = self.retrieve(cleaned_query)
+        if not hits:
+            return _FALLBACK, []
+
+        # --- build context ---
         context_parts = []
         for i, hit in enumerate(hits, 1):
             meta = hit["metadata"]
@@ -71,15 +79,30 @@ class RAGPipeline:
             context_parts.append(f"{header}\n{hit['text']}")
         context = "\n\n---\n\n".join(context_parts)
 
-        messages = [
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": (
-                    f"Контекст из базы знаний:\n\n{context}\n\n"
-                    f"Вопрос пользователя: {query}"
-                ),
-            },
-        ]
+        # --- prompt routing ---
+        category = dominant_category(hits)
+        system_prompt = get_prompt(category)
+
+        # --- build messages with history ---
+        messages: list[dict] = [{"role": "system", "content": system_prompt}]
+
+        if history:
+            for user_msg, assistant_msg in history[-_MAX_HISTORY:]:
+                messages.append({"role": "user", "content": user_msg})
+                messages.append({"role": "assistant", "content": assistant_msg})
+
+        messages.append({
+            "role": "user",
+            "content": (
+                f"Контекст из базы знаний:\n\n{context}\n\n"
+                f"Вопрос пользователя: {cleaned_query}"
+            ),
+        })
+
+        # --- generate ---
         reply = self._llm.chat(messages)
+
+        # --- output filter ---
+        reply = filter_output(reply)
+
         return reply, hits

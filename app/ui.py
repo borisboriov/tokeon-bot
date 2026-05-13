@@ -30,7 +30,9 @@ def chat(message: str, history: list[tuple[str, str]]) -> tuple[str, list[tuple[
         return "", history
 
     rag = _get_rag()
-    answer, hits = rag.answer(message)
+    # Pass history (without source annotations) to RAG
+    clean_history = [(u, a.split("\n\n**Источники:**")[0]) for u, a in history]
+    answer, hits = rag.answer(message, history=clean_history)
     sources = _sources_md(hits)
     full_reply = f"{answer}\n\n{sources}" if sources else answer
 
