@@ -78,6 +78,8 @@ data/
   chroma/              # векторная БД (не в git)
   golden_set.json      # 30 вопросов с эталонными ответами (10 зел. / 12 жёл. / 8 кр.)
   demo_scenario.md     # сценарий для демонстрации
+logs/
+  requests.csv         # лог запросов: время, вопрос, ответ, источники (не в git)
 scripts/
   ingest.py            # индексация: KB → chunks → vectors → ChromaDB
   evaluate.py          # оценка качества: 30 вопросов, LLM-as-judge, отчёт в reports/
@@ -85,6 +87,10 @@ scripts/
   preview_chunks.py    # просмотр чанков по категории
   smoke_providers.py   # проверка LLM + embeddings
   smoke_rag.py         # проверка RAG end-to-end
+tests/
+  test_filters.py      # pytest: 20 unit-тестов для комплаенс-фильтров
+.github/workflows/
+  ci.yml               # CI: ruff + pytest на каждый push в main
 main.py                # точка входа: запуск Gradio
 ```
 
