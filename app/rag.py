@@ -1,3 +1,5 @@
+import csv
+import datetime
 from pathlib import Path
 
 from app.config import settings
@@ -7,6 +9,26 @@ from app.providers import make_embeddings, make_llm
 from app.store import VectorStore
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_LOG_PATH = _PROJECT_ROOT / "logs" / "requests.csv"
+
+
+def _log(query: str, answer: str, sources: list[dict], filtered: bool) -> None:
+    _LOG_PATH.parent.mkdir(exist_ok=True)
+    is_new = not _LOG_PATH.exists()
+    with _LOG_PATH.open("a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        if is_new:
+            writer.writerow(["timestamp", "query", "answer", "sources", "filtered"])
+        source_titles = " | ".join(
+            s["metadata"].get("source_file", "") for s in sources
+        )
+        writer.writerow([
+            datetime.datetime.now().isoformat(timespec="seconds"),
+            query,
+            answer[:300],
+            source_titles,
+            filtered,
+        ])
 
 _FALLBACK = (
     "К сожалению, я не нашёл подходящей информации в базе знаний платформы Токеон. "
@@ -62,11 +84,13 @@ class RAGPipeline:
         # --- input filter ---
         cleaned_query, refusal = filter_input(query)
         if refusal:
+            _log(query, refusal, [], filtered=True)
             return refusal, []
 
         # --- retrieval ---
         hits = self.retrieve(cleaned_query)
         if not hits:
+            _log(query, _FALLBACK, [], filtered=False)
             return _FALLBACK, []
 
         # --- build context ---
@@ -105,4 +129,5 @@ class RAGPipeline:
         # --- output filter ---
         reply = filter_output(reply)
 
+        _log(query, reply, hits, filtered=False)
         return reply, hits

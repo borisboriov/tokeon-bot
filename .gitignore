@@ -25,5 +25,6 @@ venv/
 data/chroma/
 data/knowledge_base
 reports/
+logs/
 notes.md
 issues.md
