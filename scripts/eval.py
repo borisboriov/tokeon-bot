@@ -88,7 +88,7 @@ def main() -> int:
             print(f"No questions for group {args.group!r}", file=sys.stderr)
             return 1
 
-    print(f"Загружаю RAG pipeline ...")
+    print("Загружаю RAG pipeline ...")
     rag = RAGPipeline()
     print(f"Вопросов: {len(questions)}\n")
 

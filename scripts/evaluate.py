@@ -122,8 +122,10 @@ def run(questions: list[dict], rag: RAGPipeline, llm, save: bool) -> dict:
         avg_score = gs["score_sum"] / n
         pct_kb = gs["kb_ok"] / n * 100
         print(f"{group:<12} {n:>9} {pct_beh:>9.0f}% {avg_score:>8.1f} {pct_kb:>10.0f}%")
-        total_q += n; total_ok += gs["behavior_ok"]
-        total_score += gs["score_sum"]; total_kb += gs["kb_ok"]
+        total_q += n
+        total_ok += gs["behavior_ok"]
+        total_score += gs["score_sum"]
+        total_kb += gs["kb_ok"]
     print("-" * 60)
     print(f"{'ИТОГО':<12} {total_q:>9} {total_ok/total_q*100:>9.0f}% "
           f"{total_score/total_q:>8.1f} {total_kb/total_q*100:>10.0f}%")
@@ -161,7 +163,7 @@ def main() -> int:
             print(f"No questions for group {args.group!r}", file=sys.stderr)
             return 1
 
-    print(f"Загружаю RAG pipeline и LLM-судью...")
+    print("Загружаю RAG pipeline и LLM-судью...")
     rag = RAGPipeline()
     llm = make_llm()
     print(f"Вопросов: {len(questions)}\n")

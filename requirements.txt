@@ -19,3 +19,4 @@ pyyaml>=6.0
 
 # Dev
 ruff>=0.6
+pytest>=8.0
